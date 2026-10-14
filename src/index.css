@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: #1c2430;
+  background: #f6f7f9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e8edf2;
+    background: #12161c;
+  }
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
