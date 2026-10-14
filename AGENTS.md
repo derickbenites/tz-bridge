@@ -1,6 +1,6 @@
 # Agent conventions
 
-tz-bridge is a client-only meeting planner for São Paulo (`America/Sao_Paulo`) and Vancouver (`America/Vancouver`).
+tz-bridge is a client-only meeting planner. One side is the browser's time zone; the other is any IANA zone the user picks.
 
 ## Code
 
