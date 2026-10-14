@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import {
   convertWallTime,
   defaultOtherTimeZone,
+  describeOffsetGap,
   formatMeetingSummary,
   formatTimeZoneName,
   formatUtcOffset,
@@ -10,6 +11,7 @@ import {
   groupTimeZones,
   instantToWallTime,
   isDstChangingOffsetGap,
+  januaryReferenceInstant,
   listTimeZones,
   offsetGapHours,
   overlapHours,
@@ -64,17 +66,6 @@ function formatCardDate(wall: WallTime): string {
   })
     .format(new Date(Date.UTC(wall.year, wall.month - 1, wall.day)))
     .replace(',', '')
-}
-
-function hourPhrase(hours: number): string {
-  const rounded = Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
-  return `${rounded} ${Math.abs(hours) === 1 ? 'hour' : 'hours'}`
-}
-
-function relation(hours: number): string {
-  if (hours === 0) return 'on the same UTC offset as'
-  const direction = hours > 0 ? 'ahead of' : 'behind'
-  return `${hourPhrase(Math.abs(hours))} ${direction}`
 }
 
 function copyWithSelection(text: string): boolean {
@@ -155,11 +146,11 @@ function App() {
       targetLabel,
     )
     const dstChangesGap = isDstChangingOffsetGap(instant, localZone, otherZone)
-    const ahead = offsetGapHours(instant, localZone, otherZone)
-    const standardAhead = offsetGapHours(
-      new Date(Date.UTC(wall.year, 0, 15, 18, 0, 0)),
-      localZone,
-      otherZone,
+    const ahead = describeOffsetGap(
+      offsetGapHours(instant, localZone, otherZone),
+    )
+    const standardAhead = describeOffsetGap(
+      offsetGapHours(januaryReferenceInstant(instant), localZone, otherZone),
     )
     const slots = overlapHours(wall, sourceZone, targetZone)
     const overlap = slots
@@ -245,13 +236,13 @@ function App() {
             </li>
           </ul>
           <p>
-            {localLabel} is {relation(ahead)} {otherLabel}.
+            {localLabel} is {ahead} {otherLabel}.
           </p>
           {dstChangesGap ? (
             <p className="flag" role="note">
               Daylight saving time changes the difference. {localLabel} is{' '}
-              {relation(ahead)} {otherLabel} instead of{' '}
-              {relation(standardAhead)} {otherLabel} in January.
+              {ahead} {otherLabel} instead of {standardAhead} {otherLabel} in
+              January.
             </p>
           ) : null}
         </section>

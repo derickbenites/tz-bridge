@@ -221,6 +221,30 @@ export function offsetGapHours(
   return offsetGap(instant, zoneA, zoneB) / 60
 }
 
+/** Mid-January of the instant's UTC year. The flag and the sentence share this instant. */
+export function januaryReferenceInstant(instant: Date): Date {
+  return new Date(Date.UTC(instant.getUTCFullYear(), 0, 15, 18, 0, 0))
+}
+
+/**
+ * "4 hours ahead of", or "8 hours 45 minutes behind" when the gap is not a whole hour.
+ * Zero is "on the same UTC offset as".
+ */
+export function describeOffsetGap(offsetHours: number): string {
+  if (offsetHours === 0) return 'on the same UTC offset as'
+  const direction = offsetHours > 0 ? 'ahead of' : 'behind'
+  const totalMinutes = Math.round(Math.abs(offsetHours) * 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  const parts: string[] = []
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`)
+  if (minutes > 0) {
+    parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`)
+  }
+  if (parts.length === 0) return 'on the same UTC offset as'
+  return `${parts.join(' ')} ${direction}`
+}
+
 /**
  * True when daylight saving in either zone changes the UTC-offset gap
  * relative to mid-January of the same year.
@@ -230,7 +254,7 @@ export function isDstChangingOffsetGap(
   zoneA: string,
   zoneB: string,
 ): boolean {
-  const january = new Date(Date.UTC(instant.getUTCFullYear(), 0, 15, 18, 0, 0))
+  const january = januaryReferenceInstant(instant)
   return offsetGap(instant, zoneA, zoneB) !== offsetGap(january, zoneA, zoneB)
 }
 

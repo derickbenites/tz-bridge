@@ -4,12 +4,14 @@ import {
   VANCOUVER,
   convertWallTime,
   defaultOtherTimeZone,
+  describeOffsetGap,
   formatMeetingSummary,
   formatTimeZoneName,
   formatUtcOffset,
   getOffsetMinutes,
   groupTimeZones,
   isDstChangingOffsetGap,
+  januaryReferenceInstant,
   listTimeZones,
   overlapHours,
   wallTimeToInstant,
@@ -177,5 +179,26 @@ describe('time zone catalog', () => {
   it('suggests Vancouver unless that zone is already the local one', () => {
     expect(defaultOtherTimeZone(SAO_PAULO)).toBe(VANCOUVER)
     expect(defaultOtherTimeZone(VANCOUVER)).toBe(SAO_PAULO)
+  })
+})
+
+describe('describeOffsetGap', () => {
+  it('keeps whole hours, and keeps a 45 minute offset instead of rounding it', () => {
+    expect(describeOffsetGap(4)).toBe('4 hours ahead of')
+    expect(describeOffsetGap(-1)).toBe('1 hour behind')
+    expect(describeOffsetGap(8.75)).toBe('8 hours 45 minutes ahead of')
+    expect(describeOffsetGap(0)).toBe('on the same UTC offset as')
+  })
+})
+
+describe('januaryReferenceInstant', () => {
+  it('uses the UTC year when the wall clock is still on the previous year', () => {
+    const newYear = wallTimeToInstant(
+      { year: 2025, month: 12, day: 31, hour: 22, minute: 0 },
+      SAO_PAULO,
+    )
+    expect(januaryReferenceInstant(newYear).toISOString()).toBe(
+      '2026-01-15T18:00:00.000Z',
+    )
   })
 })
