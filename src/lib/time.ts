@@ -1,6 +1,6 @@
 /**
  * Time-zone helpers built on Intl. Working hours are the local interval
- * [09:00, 18:00). Vancouver observes Pacific daylight time; São Paulo does not.
+ * [09:00, 18:00). The UI compares the browser zone with any other IANA zone.
  */
 
 export const SAO_PAULO = 'America/Sao_Paulo'
@@ -9,17 +9,9 @@ export const VANCOUVER = 'America/Vancouver'
 export const WORK_START_HOUR = 9
 export const WORK_END_HOUR = 18
 
-/** Civil date when Pacific daylight time ends in 2026 (02:00 rolls back to 01:00). */
-export const VANCOUVER_DST_END = { year: 2026, month: 11, day: 1 } as const
-
-export type CityId = 'vancouver' | 'saoPaulo'
-
-export const CITIES: Record<
-  CityId,
-  { id: CityId; timeZone: string; label: string }
-> = {
-  vancouver: { id: 'vancouver', timeZone: VANCOUVER, label: 'Vancouver' },
-  saoPaulo: { id: 'saoPaulo', timeZone: SAO_PAULO, label: 'São Paulo' },
+export type TimeZoneGroup = {
+  region: string
+  timeZones: string[]
 }
 
 export type WallTime = {
@@ -97,6 +89,46 @@ function readZonedParts(instant: Date, timeZone: string): ZonedParts {
   }
 }
 
+/** IANA zone of the runtime. This is the one read that depends on the environment. */
+export function getLocalTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
+export function listTimeZones(): string[] {
+  return Intl.supportedValuesOf('timeZone')
+}
+
+/** "America/Sao_Paulo" → "Sao Paulo". The region stays in the group label. */
+export function formatTimeZoneName(timeZone: string): string {
+  const city = timeZone.split('/').pop() ?? timeZone
+  return city.replaceAll('_', ' ')
+}
+
+export function groupTimeZones(timeZones: readonly string[]): TimeZoneGroup[] {
+  const groups = new Map<string, string[]>()
+  for (const timeZone of timeZones) {
+    const slash = timeZone.indexOf('/')
+    const region = slash === -1 ? 'Other' : timeZone.slice(0, slash)
+    const list = groups.get(region)
+    if (list) list.push(timeZone)
+    else groups.set(region, [timeZone])
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([region, zones]) => ({
+      region,
+      timeZones: [...zones].sort((left, right) =>
+        formatTimeZoneName(left).localeCompare(formatTimeZoneName(right)),
+      ),
+    }))
+}
+
+/** A useful second zone when the page first opens. Vancouver, unless that is already "here". */
+export function defaultOtherTimeZone(localTimeZone: string): string {
+  return localTimeZone === VANCOUVER ? SAO_PAULO : VANCOUVER
+}
+
 /** Minutes east of UTC. São Paulo is -180. */
 export function getOffsetMinutes(timeZone: string, instant: Date): number {
   const zoned = readZonedParts(instant, timeZone)
@@ -161,7 +193,7 @@ function isWorkingHour(hour: number): boolean {
   return hour >= WORK_START_HOUR && hour < WORK_END_HOUR
 }
 
-/** One slot per local hour. Overlap means both cities are inside [09:00, 18:00). */
+/** One slot per local hour. Overlap means both zones are inside [09:00, 18:00). */
 export function overlapHours(
   date: Pick<WallTime, 'year' | 'month' | 'day'>,
   localTimeZone: string,
@@ -180,9 +212,18 @@ export function overlapHours(
   })
 }
 
+/** Signed hours from zoneB to zoneA. Positive means zoneA is ahead. */
+export function offsetGapHours(
+  instant: Date,
+  zoneA: string,
+  zoneB: string,
+): number {
+  return offsetGap(instant, zoneA, zoneB) / 60
+}
+
 /**
  * True when daylight saving in either zone changes the UTC-offset gap
- * relative to mid-January of the same year (standard time in Vancouver).
+ * relative to mid-January of the same year.
  */
 export function isDstChangingOffsetGap(
   instant: Date,

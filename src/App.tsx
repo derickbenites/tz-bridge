@@ -1,22 +1,23 @@
 import { useRef, useState, type ReactNode } from 'react'
 import {
-  CITIES,
-  SAO_PAULO,
-  VANCOUVER,
-  VANCOUVER_DST_END,
   convertWallTime,
+  defaultOtherTimeZone,
   formatMeetingSummary,
+  formatTimeZoneName,
   formatUtcOffset,
+  getLocalTimeZone,
   getOffsetMinutes,
-  isDstChangingOffsetGap,
+  groupTimeZones,
   instantToWallTime,
+  isDstChangingOffsetGap,
+  listTimeZones,
+  offsetGapHours,
   overlapHours,
   wallTimeToInstant,
-  type CityId,
   type WallTime,
 } from './lib/time'
 
-const CITY_ORDER: readonly CityId[] = ['vancouver', 'saoPaulo']
+type EntrySide = 'local' | 'other'
 
 function pad(value: number): string {
   return String(value).padStart(2, '0')
@@ -65,17 +66,15 @@ function formatCardDate(wall: WallTime): string {
     .replace(',', '')
 }
 
-function hoursApart(instant: Date): number {
-  return (
-    (getOffsetMinutes(SAO_PAULO, instant) -
-      getOffsetMinutes(VANCOUVER, instant)) /
-    60
-  )
-}
-
 function hourPhrase(hours: number): string {
   const rounded = Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
   return `${rounded} ${Math.abs(hours) === 1 ? 'hour' : 'hours'}`
+}
+
+function relation(hours: number): string {
+  if (hours === 0) return 'on the same UTC offset as'
+  const direction = hours > 0 ? 'ahead of' : 'behind'
+  return `${hourPhrase(Math.abs(hours))} ${direction}`
 }
 
 function copyWithSelection(text: string): boolean {
@@ -115,9 +114,14 @@ function describeOverlap(hours: number[]): string {
 }
 
 function App() {
-  const [sourceCity, setSourceCity] = useState<CityId>('vancouver')
+  const [localZone] = useState(getLocalTimeZone)
+  const [otherZone, setOtherZone] = useState(() =>
+    defaultOtherTimeZone(getLocalTimeZone()),
+  )
+  const [entrySide, setEntrySide] = useState<EntrySide>('local')
+  const [zoneGroups] = useState(() => groupTimeZones(listTimeZones()))
   const [when, setWhen] = useState(() => {
-    const now = instantToWallTime(new Date(), VANCOUVER)
+    const now = instantToWallTime(new Date(), getLocalTimeZone())
     return { date: toDateInput(now), time: toTimeInput(now) }
   })
   const { date, time } = when
@@ -125,8 +129,12 @@ function App() {
   const [copyError, setCopyError] = useState(false)
   const copyTimer = useRef<number | null>(null)
 
-  const source = CITIES[sourceCity]
-  const target = CITIES[sourceCity === 'vancouver' ? 'saoPaulo' : 'vancouver']
+  const localLabel = formatTimeZoneName(localZone)
+  const otherLabel = formatTimeZoneName(otherZone)
+  const sourceZone = entrySide === 'local' ? localZone : otherZone
+  const targetZone = entrySide === 'local' ? otherZone : localZone
+  const sourceLabel = entrySide === 'local' ? localLabel : otherLabel
+  const targetLabel = entrySide === 'local' ? otherLabel : localLabel
   const wall = parseEntry(date, time)
 
   function clearCopyFeedback() {
@@ -138,34 +146,22 @@ function App() {
   if (!wall) {
     body = <p role="alert">Enter a valid date and time.</p>
   } else {
-    const converted = convertWallTime(wall, source.timeZone, target.timeZone)
-    const instant = wallTimeToInstant(wall, source.timeZone)
+    const converted = convertWallTime(wall, sourceZone, targetZone)
+    const instant = wallTimeToInstant(wall, sourceZone)
     const summary = formatMeetingSummary(
       wall,
-      source.label,
+      sourceLabel,
       converted,
-      target.label,
+      targetLabel,
     )
-    const dstChangesGap = isDstChangingOffsetGap(instant, SAO_PAULO, VANCOUVER)
-    const ahead = hoursApart(instant)
-    const standardAhead = hoursApart(
+    const dstChangesGap = isDstChangingOffsetGap(instant, localZone, otherZone)
+    const ahead = offsetGapHours(instant, localZone, otherZone)
+    const standardAhead = offsetGapHours(
       new Date(Date.UTC(wall.year, 0, 15, 18, 0, 0)),
+      localZone,
+      otherZone,
     )
-    const dstEnd = new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(
-      new Date(
-        Date.UTC(
-          VANCOUVER_DST_END.year,
-          VANCOUVER_DST_END.month - 1,
-          VANCOUVER_DST_END.day,
-        ),
-      ),
-    )
-    const slots = overlapHours(wall, source.timeZone, target.timeZone)
+    const slots = overlapHours(wall, sourceZone, targetZone)
     const overlap = slots
       .filter((slot) => slot.overlap)
       .map((slot) => slot.hour)
@@ -197,21 +193,23 @@ function App() {
           <h2 id="equivalent-heading">Equivalent time</h2>
           <div className="pair">
             <article>
-              <h3>{source.label}</h3>
+              <h3>{sourceLabel}</h3>
+              <p className="zone-id">{sourceZone}</p>
               <p>
                 {formatCardDate(wall)}, {toTimeInput(wall)}
               </p>
               <p className="offset">
-                {formatUtcOffset(getOffsetMinutes(source.timeZone, instant))}
+                {formatUtcOffset(getOffsetMinutes(sourceZone, instant))}
               </p>
             </article>
             <article>
-              <h3>{target.label}</h3>
+              <h3>{targetLabel}</h3>
+              <p className="zone-id">{targetZone}</p>
               <p>
                 {formatCardDate(converted)}, {toTimeInput(converted)}
               </p>
               <p className="offset">
-                {formatUtcOffset(getOffsetMinutes(target.timeZone, instant))}
+                {formatUtcOffset(getOffsetMinutes(targetZone, instant))}
               </p>
             </article>
           </div>
@@ -234,25 +232,26 @@ function App() {
           <h2 id="offset-heading">UTC offsets at this time</h2>
           <ul className="offsets">
             <li>
-              {source.label}{' '}
+              {localLabel}{' '}
               <strong>
-                {formatUtcOffset(getOffsetMinutes(source.timeZone, instant))}
+                {formatUtcOffset(getOffsetMinutes(localZone, instant))}
               </strong>
             </li>
             <li>
-              {target.label}{' '}
+              {otherLabel}{' '}
               <strong>
-                {formatUtcOffset(getOffsetMinutes(target.timeZone, instant))}
+                {formatUtcOffset(getOffsetMinutes(otherZone, instant))}
               </strong>
             </li>
           </ul>
-          <p>São Paulo is {hourPhrase(ahead)} ahead of Vancouver.</p>
+          <p>
+            {localLabel} is {relation(ahead)} {otherLabel}.
+          </p>
           {dstChangesGap ? (
             <p className="flag" role="note">
-              Daylight saving time changes the difference. São Paulo is{' '}
-              {hourPhrase(ahead)} ahead instead of {hourPhrase(standardAhead)}.
-              Pacific daylight time ends {dstEnd}; São Paulo does not observe
-              daylight saving time.
+              Daylight saving time changes the difference. {localLabel} is{' '}
+              {relation(ahead)} {otherLabel} instead of{' '}
+              {relation(standardAhead)} {otherLabel} in January.
             </p>
           ) : null}
         </section>
@@ -260,7 +259,7 @@ function App() {
         <section className="panel" aria-labelledby="overlap-heading">
           <h2 id="overlap-heading">Working-hour overlap</h2>
           <p id="overlap-summary">
-            Shared window in {source.label}: {overlapText}. Both cities use
+            Shared window in {sourceLabel}: {overlapText}. Both zones use
             09:00–18:00 local.
           </p>
           <div className="strip-scroll">
@@ -269,7 +268,7 @@ function App() {
                 <li
                   key={slot.hour}
                   className={slot.overlap ? 'slot overlap' : 'slot'}
-                  aria-label={`${pad(slot.hour)}:00, ${slot.overlap ? 'both cities in working hours' : 'outside the shared window'}`}
+                  aria-label={`${pad(slot.hour)}:00, ${slot.overlap ? 'both zones in working hours' : 'outside the shared window'}`}
                 >
                   <span aria-hidden="true">{pad(slot.hour)}</span>
                 </li>
@@ -278,7 +277,7 @@ function App() {
           </div>
           <p className="legend">
             <span className="swatch" aria-hidden="true" />
-            Highlighted hours are inside 09:00–18:00 in both cities.
+            Highlighted hours are inside 09:00–18:00 in both zones.
           </p>
         </section>
       </>
@@ -289,28 +288,72 @@ function App() {
     <main>
       <header>
         <h1>tz-bridge</h1>
-        <p className="lede">Plan a meeting between São Paulo and Vancouver.</p>
+        <p className="lede">
+          Plan a meeting between your time zone and another one.
+        </p>
       </header>
 
       <section className="panel" aria-labelledby="entry-heading">
         <h2 id="entry-heading">Enter a time</h2>
+        <div className="here">
+          <p className="here-label">Your time zone</p>
+          <p className="here-name">{localLabel}</p>
+          <p className="zone-id">{localZone}</p>
+        </div>
+        <label className="compare">
+          Compare with
+          <select
+            value={otherZone}
+            onChange={(event) => {
+              setOtherZone(event.target.value)
+              clearCopyFeedback()
+            }}
+          >
+            {zoneGroups.map((group) => {
+              const timeZones = group.timeZones.filter(
+                (timeZone) => timeZone !== localZone,
+              )
+              if (timeZones.length === 0) return null
+              return (
+                <optgroup key={group.region} label={group.region}>
+                  {timeZones.map((timeZone) => (
+                    <option key={timeZone} value={timeZone}>
+                      {formatTimeZoneName(timeZone)}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
+          </select>
+        </label>
         <fieldset className="cities">
-          <legend>City for the date and time below</legend>
-          {CITY_ORDER.map((id) => (
-            <label key={id}>
-              <input
-                type="radio"
-                name="source-city"
-                value={id}
-                checked={sourceCity === id}
-                onChange={() => {
-                  setSourceCity(id)
-                  clearCopyFeedback()
-                }}
-              />
-              {CITIES[id].label}
-            </label>
-          ))}
+          <legend>Enter the date and time in</legend>
+          <label>
+            <input
+              type="radio"
+              name="entry-side"
+              value="local"
+              checked={entrySide === 'local'}
+              onChange={() => {
+                setEntrySide('local')
+                clearCopyFeedback()
+              }}
+            />
+            {localLabel}
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="entry-side"
+              value="other"
+              checked={entrySide === 'other'}
+              onChange={() => {
+                setEntrySide('other')
+                clearCopyFeedback()
+              }}
+            />
+            {otherLabel}
+          </label>
         </fieldset>
         <div className="fields">
           <label>

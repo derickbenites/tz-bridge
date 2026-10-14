@@ -3,10 +3,14 @@ import {
   SAO_PAULO,
   VANCOUVER,
   convertWallTime,
+  defaultOtherTimeZone,
   formatMeetingSummary,
+  formatTimeZoneName,
   formatUtcOffset,
   getOffsetMinutes,
+  groupTimeZones,
   isDstChangingOffsetGap,
+  listTimeZones,
   overlapHours,
   wallTimeToInstant,
   type WallTime,
@@ -153,5 +157,25 @@ describe('formatMeetingSummary', () => {
         'São Paulo',
       ),
     ).toBe('Wed Oct 14, 22:00 Vancouver = Thu Oct 15, 02:00 São Paulo')
+  })
+})
+
+describe('time zone catalog', () => {
+  it('names a zone by its city and groups zones by region', () => {
+    expect(formatTimeZoneName('America/Sao_Paulo')).toBe('Sao Paulo')
+    expect(formatTimeZoneName('America/Argentina/Buenos_Aires')).toBe(
+      'Buenos Aires',
+    )
+
+    const america = groupTimeZones(listTimeZones()).find(
+      (group) => group.region === 'America',
+    )
+    expect(america?.timeZones).toContain(SAO_PAULO)
+    expect(america?.timeZones).toContain(VANCOUVER)
+  })
+
+  it('suggests Vancouver unless that zone is already the local one', () => {
+    expect(defaultOtherTimeZone(SAO_PAULO)).toBe(VANCOUVER)
+    expect(defaultOtherTimeZone(VANCOUVER)).toBe(SAO_PAULO)
   })
 })
