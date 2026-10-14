@@ -1,15 +1,41 @@
 :root {
   color-scheme: light dark;
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #526070;
+  --line: #d5dee6;
+  --accent: #0c6b68;
+  --accent-text: #ffffff;
+  --quiet: #e7eef2;
+  --overlap: #0c6b68;
+  --overlap-text: #ffffff;
+  --flag-bg: #fff6e4;
+  --flag-line: #d7a441;
+  --flag-text: #5a3f08;
+  --focus: #0c6b68;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  color: #1c2430;
-  background: #f6f7f9;
+  color: var(--text);
+  background: var(--bg);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color: #e8edf2;
-    background: #12161c;
+    --bg: #101418;
+    --surface: #1a2129;
+    --text: #e7eef3;
+    --muted: #a8b3bd;
+    --line: #2e3b46;
+    --accent: #3dbeb6;
+    --accent-text: #06211f;
+    --quiet: #24303a;
+    --overlap: #1b8f87;
+    --overlap-text: #f3fffd;
+    --flag-bg: #3a2e14;
+    --flag-line: #c4923a;
+    --flag-text: #ffe6b0;
+    --focus: #7ee0d8;
   }
 }
 
@@ -17,8 +43,218 @@ body {
   margin: 0;
 }
 
-#root {
-  max-width: 720px;
+main {
+  max-width: 44rem;
   margin: 0 auto;
-  padding: 2rem 1.25rem;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0.25rem;
+  font-size: 1.8rem;
+}
+
+h2 {
+  margin-bottom: 0.75rem;
+  font-size: 1.05rem;
+}
+
+h3 {
+  margin-bottom: 0.2rem;
+  font-size: 0.95rem;
+}
+
+.lede,
+.legend,
+.offset,
+.status {
+  color: var(--muted);
+}
+
+.panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.cities {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.cities legend {
+  padding: 0;
+  margin-bottom: 0.4rem;
+  width: 100%;
+}
+
+.cities label,
+.fields label {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.fields label {
+  flex-direction: column;
+  font-size: 0.92rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+input[type='date'],
+input[type='time'] {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.pair article {
+  padding: 0.75rem;
+  background: var(--quiet);
+  border-radius: 8px;
+}
+
+.pair p,
+.offsets,
+.summary {
+  margin-bottom: 0;
+}
+
+.summary {
+  margin-top: 0.9rem;
+  font-weight: 650;
+}
+
+.copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+button {
+  font: inherit;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.status {
+  min-height: 1.5em;
+  margin: 0;
+}
+
+.offsets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.offsets li {
+  padding: 0.4rem 0.7rem;
+  background: var(--quiet);
+  border-radius: 8px;
+}
+
+.flag {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  color: var(--flag-text);
+  background: var(--flag-bg);
+  border: 1px solid var(--flag-line);
+  border-radius: 8px;
+}
+
+.strip-scroll {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(1.7rem, 1fr));
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 40rem;
+}
+
+.slot {
+  padding: 0.4rem 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--quiet);
+  border-radius: 4px;
+}
+
+.slot.overlap {
+  color: var(--overlap-text);
+  background: var(--overlap);
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+}
+
+.swatch {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 3px;
+  background: var(--overlap);
+}
+
+@media (max-width: 560px) {
+  .fields,
+  .pair {
+    grid-template-columns: 1fr;
+  }
 }
